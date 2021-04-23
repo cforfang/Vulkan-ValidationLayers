@@ -1698,6 +1698,13 @@ TEST_F(VkGpuAssistedLayerTest, GpuDrawIndirectCount) {
         return;
     }
 
+    auto vkCmdDrawIndexedIndirectCountKHR =
+        (PFN_vkCmdDrawIndexedIndirectCountKHR)vk::GetDeviceProcAddr(m_device->device(), "vkCmdDrawIndexedIndirectCountKHR");
+    if (vkCmdDrawIndexedIndirectCountKHR == nullptr) {
+        printf("%s did not find vkCmdDrawIndexedIndirectCountKHR function pointer;  Skipping.\n", kSkipPrefix);
+        return;
+    }
+
     VkBufferCreateInfo buffer_create_info = LvlInitStruct<VkBufferCreateInfo>();
     buffer_create_info.size = sizeof(VkDrawIndirectCommand);
     buffer_create_info.usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
@@ -1709,6 +1716,18 @@ TEST_F(VkGpuAssistedLayerTest, GpuDrawIndirectCount) {
     draw_ptr->instanceCount = 1;
     draw_ptr->vertexCount = 3;
     draw_buffer.memory().unmap();
+
+    VkBufferObj indexed_draw_buffer;
+    buffer_create_info.size = sizeof(VkDrawIndexedIndirectCommand);
+    indexed_draw_buffer.init(*m_device, buffer_create_info,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    VkDrawIndexedIndirectCommand *indexed_draw_ptr = (VkDrawIndexedIndirectCommand *)indexed_draw_buffer.memory().map();
+    indexed_draw_ptr->indexCount = 3;
+    indexed_draw_ptr->firstIndex = 0;
+    indexed_draw_ptr->instanceCount = 1;
+    indexed_draw_ptr->firstInstance = 0;
+    indexed_draw_ptr->vertexOffset = 0;
+    indexed_draw_buffer.memory().unmap();
 
     VkBufferCreateInfo count_buffer_create_info = LvlInitStruct<VkBufferCreateInfo>();
     count_buffer_create_info.size = sizeof(uint32_t);
@@ -1801,6 +1820,7 @@ TEST_F(VkGpuAssistedLayerTest, GpuDrawIndirectCount) {
     // Positive Test
     vkCmdDrawIndirectCountKHR(m_commandBuffer->handle(), draw_buffer.handle(), 0, count_buffer.handle(), 0, 1,
                               sizeof(VkDrawIndirectCommand));
+
     m_commandBuffer->EndRenderPass();
     m_commandBuffer->end();
     m_commandBuffer->QueueCommandBuffer();
@@ -1809,7 +1829,7 @@ TEST_F(VkGpuAssistedLayerTest, GpuDrawIndirectCount) {
     // Storage buffer should be written
     uint32_t *storage_ptr = (uint32_t *)storage_buffer.memory().map();
     if (*storage_ptr != 0xba5eba11) {
-        ADD_FAILURE() << "ERROR: Storage buffer value is incorrect";
+        ADD_FAILURE() << "ERROR: Storage buffer value is incorrect - Expected 0xba5eba11, Actual 0x" << std::hex << *storage_ptr;
     }
     *storage_ptr = 0;
     storage_buffer.memory().unmap();
@@ -1826,13 +1846,13 @@ TEST_F(VkGpuAssistedLayerTest, GpuDrawIndirectCount) {
     // Shader should not have executed
     storage_ptr = (uint32_t *)storage_buffer.memory().map();
     if (*storage_ptr != 0) {
-        ADD_FAILURE() << "ERROR: Storage buffer value is incorrect";
+        ADD_FAILURE() << "ERROR: Storage buffer value is incorrect - Expected 0x0, Actual 0x" << std::hex << *storage_ptr;
     }
     *storage_ptr = 0;
     storage_buffer.memory().unmap();
 
     m_errorMonitor->SetDesiredFailureMsg(kErrorBit, "VUID-vkCmdDrawIndirectCount-countBuffer-03121");
-    m_commandBuffer->begin();
+    m_commandBuffer->begin(&begin_info);
     m_commandBuffer->BeginRenderPass(m_renderPassBeginInfo);
     vk::CmdBindPipeline(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.handle());
     vk::CmdBindDescriptorSets(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1,
@@ -1855,10 +1875,91 @@ TEST_F(VkGpuAssistedLayerTest, GpuDrawIndirectCount) {
     // Shader should not have executed
     storage_ptr = (uint32_t *)storage_buffer.memory().map();
     if (*storage_ptr != 0) {
-        ADD_FAILURE() << "ERROR: Storage buffer value is incorrect";
+        ADD_FAILURE() << "ERROR: Storage buffer value is incorrect - Expected 0x0, Actual 0x" << std::hex << *storage_ptr;
     }
+    *storage_ptr = 0;
     storage_buffer.memory().unmap();
     m_errorMonitor->VerifyFound();
+
+    // Now DrawIndexedIndirectCount tests
+    // Positive Test
+    m_commandBuffer->begin(&begin_info);
+    m_commandBuffer->BeginRenderPass(m_renderPassBeginInfo);
+    vk::CmdBindPipeline(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.handle());
+    vk::CmdBindDescriptorSets(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1,
+                              &descriptor_set.set_, 0, NULL);
+    vk::CmdSetViewport(m_commandBuffer->handle(), 0, 1, &viewport);
+    vk::CmdSetScissor(m_commandBuffer->handle(), 0, 1, &scissor);
+    VkBufferCreateInfo index_buffer_create_info = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    index_buffer_create_info.size = 3 * sizeof(uint32_t);
+    index_buffer_create_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    VkBufferObj index_buffer;
+    index_buffer.init(*m_device, index_buffer_create_info);
+    vk::CmdBindIndexBuffer(m_commandBuffer->handle(), index_buffer.handle(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexedIndirectCountKHR(m_commandBuffer->handle(), indexed_draw_buffer.handle(), 0, count_buffer.handle(), 0, 1,
+                                     sizeof(VkDrawIndexedIndirectCommand));
+    m_commandBuffer->EndRenderPass();
+    m_commandBuffer->end();
+    m_commandBuffer->QueueCommandBuffer();
+    err = vk::QueueWaitIdle(m_device->m_queue);
+    ASSERT_VK_SUCCESS(err);
+    m_errorMonitor->VerifyFound();
+    // Shader should have executed
+    storage_ptr = (uint32_t *)storage_buffer.memory().map();
+    if (*storage_ptr != 0xba5eba11) {
+        ADD_FAILURE() << "ERROR: Storage buffer value is incorrect - Expected 0xba5eba11, Actual 0x" << std::hex << *storage_ptr;
+    }
+    *storage_ptr = 0;
+    storage_buffer.memory().unmap();
+    m_errorMonitor->VerifyNotFound();
+
+    m_errorMonitor->SetDesiredFailureMsg(kErrorBit, "VUID-vkCmdDrawIndexedIndirectCount-countBuffer-03154");
+    count_ptr = (uint32_t *)count_buffer.memory().map();
+    *count_ptr = 2;
+    count_buffer.memory().unmap();
+    m_commandBuffer->QueueCommandBuffer();
+    err = vk::QueueWaitIdle(m_device->m_queue);
+    ASSERT_VK_SUCCESS(err);
+    m_errorMonitor->VerifyFound();
+    // Shader should not have executed
+    storage_ptr = (uint32_t *)storage_buffer.memory().map();
+    if (*storage_ptr != 0) {
+        ADD_FAILURE() << "ERROR: Storage buffer value is incorrect - Expected 0x0, Actual 0x" << std::hex << *storage_ptr;
+    }
+    *storage_ptr = 0;
+    storage_buffer.memory().unmap();
+
+    m_errorMonitor->SetDesiredFailureMsg(kErrorBit, "VUID-vkCmdDrawIndexedIndirectCount-countBuffer-03153");
+    m_commandBuffer->begin(&begin_info);
+    m_commandBuffer->BeginRenderPass(m_renderPassBeginInfo);
+    vk::CmdBindPipeline(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.handle());
+    vk::CmdBindDescriptorSets(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1,
+                              &descriptor_set.set_, 0, NULL);
+    vk::CmdSetViewport(m_commandBuffer->handle(), 0, 1, &viewport);
+    vk::CmdSetScissor(m_commandBuffer->handle(), 0, 1, &scissor);
+    vk::CmdBindIndexBuffer(m_commandBuffer->handle(), index_buffer.handle(), 0, VK_INDEX_TYPE_UINT32);
+    // Offset of 4 should error
+    vkCmdDrawIndexedIndirectCountKHR(m_commandBuffer->handle(), indexed_draw_buffer.handle(), 4, count_buffer.handle(), 0, 1,
+                                     sizeof(VkDrawIndexedIndirectCommand));
+    m_commandBuffer->EndRenderPass();
+    m_commandBuffer->end();
+
+    count_ptr = (uint32_t *)count_buffer.memory().map();
+    *count_ptr = 1;
+    count_buffer.memory().unmap();
+    m_commandBuffer->QueueCommandBuffer();
+    err = vk::QueueWaitIdle(m_device->m_queue);
+    ASSERT_VK_SUCCESS(err);
+    m_errorMonitor->VerifyFound();
+    // Shader should not have executed
+    storage_ptr = (uint32_t *)storage_buffer.memory().map();
+    if (*storage_ptr != 0) {
+        ADD_FAILURE() << "ERROR: Storage buffer value is incorrect - Expected 0x0, Actual 0x" << std::hex << *storage_ptr;
+    }
+    *storage_ptr = 0;
+    storage_buffer.memory().unmap();
+    m_errorMonitor->VerifyFound();
+
     vk::DestroyPipelineLayout(m_device->handle(), pipeline_layout, nullptr);
 }
 
