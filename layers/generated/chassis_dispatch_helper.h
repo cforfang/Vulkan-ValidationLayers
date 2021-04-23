@@ -418,9 +418,6 @@ typedef enum InterceptId{
     InterceptIdPreCallValidateGetDescriptorSetLayoutSupport,
     InterceptIdPreCallRecordGetDescriptorSetLayoutSupport,
     InterceptIdPostCallRecordGetDescriptorSetLayoutSupport,
-    InterceptIdPreCallValidateCmdDrawIndexedIndirectCount,
-    InterceptIdPreCallRecordCmdDrawIndexedIndirectCount,
-    InterceptIdPostCallRecordCmdDrawIndexedIndirectCount,
     InterceptIdPreCallValidateCreateRenderPass2,
     InterceptIdPreCallRecordCreateRenderPass2,
     InterceptIdPostCallRecordCreateRenderPass2,
@@ -622,9 +619,6 @@ typedef enum InterceptId{
     InterceptIdPreCallValidateGetDescriptorSetLayoutSupportKHR,
     InterceptIdPreCallRecordGetDescriptorSetLayoutSupportKHR,
     InterceptIdPostCallRecordGetDescriptorSetLayoutSupportKHR,
-    InterceptIdPreCallValidateCmdDrawIndexedIndirectCountKHR,
-    InterceptIdPreCallRecordCmdDrawIndexedIndirectCountKHR,
-    InterceptIdPostCallRecordCmdDrawIndexedIndirectCountKHR,
     InterceptIdPreCallValidateGetSemaphoreCounterValueKHR,
     InterceptIdPreCallRecordGetSemaphoreCounterValueKHR,
     InterceptIdPostCallRecordGetSemaphoreCounterValueKHR,
@@ -1555,9 +1549,6 @@ void ValidationObject::InitObjectDispatchVectors() {
     BUILD_DISPATCH_VECTOR(PreCallValidateGetDescriptorSetLayoutSupport);
     BUILD_DISPATCH_VECTOR(PreCallRecordGetDescriptorSetLayoutSupport);
     BUILD_DISPATCH_VECTOR(PostCallRecordGetDescriptorSetLayoutSupport);
-    BUILD_DISPATCH_VECTOR(PreCallValidateCmdDrawIndexedIndirectCount);
-    BUILD_DISPATCH_VECTOR(PreCallRecordCmdDrawIndexedIndirectCount);
-    BUILD_DISPATCH_VECTOR(PostCallRecordCmdDrawIndexedIndirectCount);
     BUILD_DISPATCH_VECTOR(PreCallValidateCreateRenderPass2);
     BUILD_DISPATCH_VECTOR(PreCallRecordCreateRenderPass2);
     BUILD_DISPATCH_VECTOR(PostCallRecordCreateRenderPass2);
@@ -1815,9 +1806,6 @@ void ValidationObject::InitObjectDispatchVectors() {
     BUILD_DISPATCH_VECTOR(PreCallValidateGetDescriptorSetLayoutSupportKHR);
     BUILD_DISPATCH_VECTOR(PreCallRecordGetDescriptorSetLayoutSupportKHR);
     BUILD_DISPATCH_VECTOR(PostCallRecordGetDescriptorSetLayoutSupportKHR);
-    BUILD_DISPATCH_VECTOR(PreCallValidateCmdDrawIndexedIndirectCountKHR);
-    BUILD_DISPATCH_VECTOR(PreCallRecordCmdDrawIndexedIndirectCountKHR);
-    BUILD_DISPATCH_VECTOR(PostCallRecordCmdDrawIndexedIndirectCountKHR);
     BUILD_DISPATCH_VECTOR(PreCallValidateGetSemaphoreCounterValueKHR);
     BUILD_DISPATCH_VECTOR(PreCallRecordGetSemaphoreCounterValueKHR);
     BUILD_DISPATCH_VECTOR(PostCallRecordGetSemaphoreCounterValueKHR);
